@@ -14,7 +14,7 @@ import {IPriceOracleV3} from "@gearbox-protocol/core-v3/contracts/interfaces/IPr
 /// @title Dollar Cost Averaging (DCA) bot.
 /// @notice Allows Gearbox users to submit DCA orders, which automatically buy a fixed amount of tokens at regular intervals.
 /// @dev Not designed to handle quoted tokens.
-contract DCABot {
+contract DCAOrderBot {
     // ----- //
     // TYPES //
     // ----- //
