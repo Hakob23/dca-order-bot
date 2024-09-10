@@ -69,6 +69,9 @@ contract DCAOrderBot {
     /// @notice When user tries to submit/cancel other user's DCA order.
     error CallerNotBorrower();
 
+    /// @notice When order can't be executed because it's cancelled.
+    error OrderIsCancelled();
+
     /// @notice When DCA order can't be executed because it's incorrect.
     error InvalidOrder();
 
@@ -160,6 +163,9 @@ contract DCAOrderBot {
     function _validateDCAOrder(DCAOrder memory dcaOrder) internal view returns (uint256 amountIn, uint256 minAmountOut) {
         
         ICreditManagerV3 manager = ICreditManagerV3(dcaOrder.manager);
+        if (dcaOrder.account == address(0)) {
+            revert OrderIsCancelled();
+        }
 
         if (dcaOrder.executionsLeft == 0) {
             revert NoExecutionsLeft();
