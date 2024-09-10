@@ -9,12 +9,15 @@ import {
     ALL_CREDIT_FACADE_CALLS_PERMISSION
 } from "@gearbox-protocol/core-v3/contracts/interfaces/ICreditFacadeV3Multicall.sol";
 
-import {DCABot} from "../src/DCAOrderBot.sol";
+import {IPriceOracleV3} from "@gearbox-protocol/core-v3/contracts/interfaces/IPriceOracleV3.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+import {DCAOrderBot} from "../src/DCAOrderBot.sol";
 import {BotTestHelper} from "./BotTestHelper.sol";
 
 contract DCAOrderBotTest is BotTestHelper {
     // tested bot
-    DCABot public bot;
+    DCAOrderBot public bot;
     ICreditAccountV3 creditAccount;
 
     // tokens
@@ -33,7 +36,7 @@ contract DCAOrderBotTest is BotTestHelper {
 
         creditAccount = openCreditAccount(user, 50_000e6, 100_000e6);
 
-        bot = new DCABot();
+        bot = new DCAOrderBot();
         vm.prank(user);
         creditFacade.setBotPermissions(
             address(creditAccount), address(bot), uint192(ALL_CREDIT_FACADE_CALLS_PERMISSION)
@@ -48,9 +51,9 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_02_submitDCAOrder_reverts_if_caller_is_not_borrower() public {
-        DCABot.DCAOrder memory dcaOrder;
+        DCAOrderBot.DCAOrder memory dcaOrder;
 
-        vm.expectRevert(DCABot.CallerNotBorrower.selector);
+        vm.expectRevert(DCAOrderBot.CallerNotBorrower.selector);
         vm.prank(user);
         bot.submitDCAOrder(dcaOrder);
 
@@ -59,13 +62,13 @@ contract DCAOrderBotTest is BotTestHelper {
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
 
-        vm.expectRevert(DCABot.CallerNotBorrower.selector);
+        vm.expectRevert(DCAOrderBot.CallerNotBorrower.selector);
         vm.prank(caller);
         bot.submitDCAOrder(dcaOrder);
     }
 
     function test_DCA_03_submitDCAOrder_works_as_expected_when_called_properly() public {
-        DCABot.DCAOrder memory dcaOrder = DCABot.DCAOrder({
+        DCAOrderBot.DCAOrder memory dcaOrder = DCAOrderBot.DCAOrder({
             borrower: user,
             manager: address(creditManager),
             account: address(creditAccount),
@@ -79,7 +82,7 @@ contract DCAOrderBotTest is BotTestHelper {
         });
 
         vm.expectEmit(true, true, true, true);
-        emit DCABot.CreateDCAOrder(user, 0);
+        emit DCAOrderBot.CreateDCAOrder(user, 0);
 
         vm.prank(user);
         uint256 orderId = bot.submitDCAOrder(dcaOrder);
@@ -89,7 +92,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_04_cancelDCAOrder_reverts_if_caller_is_not_borrower() public {
-        DCABot.DCAOrder memory dcaOrder;
+        DCAOrderBot.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -98,13 +101,13 @@ contract DCAOrderBotTest is BotTestHelper {
         uint256 orderId = bot.submitDCAOrder(dcaOrder);
 
         address caller = makeAddr("CALLER");
-        vm.expectRevert(DCABot.CallerNotBorrower.selector);
+        vm.expectRevert(DCAOrderBot.CallerNotBorrower.selector);
         vm.prank(caller);
         bot.cancelDCAOrder(orderId);
     }
 
     function test_DCA_05_cancelDCAOrder_works_as_expected_when_called_properly() public {
-        DCABot.DCAOrder memory dcaOrder;
+        DCAOrderBot.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -113,7 +116,7 @@ contract DCAOrderBotTest is BotTestHelper {
         uint256 orderId = bot.submitDCAOrder(dcaOrder);
 
         vm.expectEmit(true, true, true, true);
-        emit DCABot.CancelDCAOrder(user, orderId);
+        emit DCAOrderBot.CancelDCAOrder(user, orderId);
 
         vm.prank(user);
         bot.cancelDCAOrder(orderId);
@@ -121,7 +124,88 @@ contract DCAOrderBotTest is BotTestHelper {
         _assertDCAOrderIsEmpty(orderId);
     }
 
-    function _assertDCAOrderIsEqual(uint256 orderId, DCABot.DCAOrder memory dcaOrder) internal {
+    function test_DCA_06_executeDCAOrder_reverts_if_no_executions_left() public {
+        DCAOrderBot.DCAOrder memory dcaOrder;
+        dcaOrder.borrower = user;
+        dcaOrder.manager = address(creditManager);
+        dcaOrder.account = address(creditAccount);
+        dcaOrder.executionsLeft = 0;
+
+        vm.prank(user);
+        uint256 orderId = bot.submitDCAOrder(dcaOrder);
+
+        vm.expectRevert(DCAOrderBot.NoExecutionsLeft.selector);
+        vm.prank(executor);
+        bot.executeDCAOrder(orderId);
+    }
+
+    function test_DCA_07_executeDCAOrder_reverts_if_execution_time_has_not_passed() public {
+        DCAOrderBot.DCAOrder memory dcaOrder;
+        dcaOrder.borrower = user;
+        dcaOrder.manager = address(creditManager);
+        dcaOrder.account = address(creditAccount);
+        dcaOrder.nextExecutionTime = block.timestamp + 1 days;
+        dcaOrder.executionsLeft = 5;
+
+        vm.prank(user);
+        uint256 orderId = bot.submitDCAOrder(dcaOrder);
+
+        vm.expectRevert(DCAOrderBot.NotTimeYet.selector);
+        vm.prank(executor);
+        bot.executeDCAOrder(orderId);
+    }
+
+    function test_DCA_08_executeOrder_reverts_if_order_is_cancelled() public {
+        DCAOrderBot.DCAOrder memory order;
+        order.borrower = user;
+        order.manager = address(creditManager);
+        order.account = address(creditAccount);
+
+        vm.prank(user);
+        uint256 orderId = bot.submitDCAOrder(order);
+
+        vm.prank(user);
+        bot.cancelDCAOrder(orderId);
+
+        vm.expectRevert(DCAOrderBot.OrderIsCancelled.selector);
+        vm.prank(executor);
+        bot.executeDCAOrder(orderId);
+    }
+
+    function test_DCA_09_executeDCAOrder_works_as_expected_when_called_properly() public {
+        DCAOrderBot.DCAOrder memory dcaOrder;
+        dcaOrder.borrower = user;
+        dcaOrder.manager = address(creditManager);
+        dcaOrder.account = address(creditAccount);
+        dcaOrder.tokenIn = address(usdc);
+        dcaOrder.tokenOut = address(weth);
+        dcaOrder.amountPerInterval = 200_000e6;
+        dcaOrder.interval = 1 days;
+        dcaOrder.nextExecutionTime = block.timestamp;
+        dcaOrder.executionsLeft = 5;
+
+        vm.prank(user);
+        uint256 orderId = bot.submitDCAOrder(dcaOrder);
+        uint256 ONE = 10 ** IERC20Metadata(dcaOrder.tokenIn).decimals();
+        uint256 price = IPriceOracleV3(creditManager.priceOracle()).convert(ONE, dcaOrder.tokenIn, dcaOrder.tokenOut);
+       
+        uint256 wethAmount = (150_000e6 - 1) * price / 1e6;
+        deal({token: address(weth), to: executor, give: wethAmount});
+        vm.prank(executor);
+        weth.approve(address(bot), wethAmount);
+
+        vm.expectEmit(true, true, true, true);
+        emit DCAOrderBot.ExecuteDCAOrder(executor, orderId);
+        vm.prank(executor);
+        bot.executeDCAOrder(orderId);
+
+        _assertDCAOrderHasRemainingExecutions(orderId, 4);
+
+        assertEq(usdc.balanceOf(executor), 150_000e6/4-1, "Incorrect executor USDC balance");
+        assertEq(weth.balanceOf(address(creditAccount)), wethAmount, "Incorrect account WETH balance");
+    }
+
+    function _assertDCAOrderIsEqual(uint256 orderId, DCAOrderBot.DCAOrder memory dcaOrder) internal {
         (
             address borrower,
             address manager,
