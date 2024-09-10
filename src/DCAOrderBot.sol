@@ -135,7 +135,7 @@ contract DCAOrderBot {
         });
         calls[1] = MultiCall({
             target: facade,
-            callData: abi.encodeCall(ICreditFacadeV3Multicall.withdrawCollateral, (dcaOrder.tokenIn, amountIn, msg.sender))
+            callData: abi.encodeCall(ICreditFacadeV3Multicall.withdrawCollateral, (dcaOrder.tokenIn, amountIn/4, msg.sender))
         });
         ICreditFacadeV3(facade).botMulticall(dcaOrder.account, calls);
 
