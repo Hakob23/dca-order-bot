@@ -1,0 +1,65 @@
+{
+  "name": "@gearbox-protocol/integrations-v3",
+  "description": "Integration contracts for Gearbox V3",
+  "version": "1.22.0",
+  "homepage": "https://gearbox.fi",
+  "main": "./npm-root/index.js",
+  "types": "./npm-root/index.d.ts",
+  "keywords": [
+    "gearbox"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gearbox-protocol/integrations-v3"
+  },
+  "files": [
+    "contracts",
+    "dist"
+  ],
+  "license": "BUSL-1.1",
+  "scripts": {
+    "prepare": "husky install",
+    "prettier": "forge fmt",
+    "prettier:ci": "forge fmt",
+    "lint": "eslint \"**/*.ts\" --fix",
+    "lint:ci": "eslint \"**/*.ts\"",
+    "typecheck:ci": "tsc --noEmit",
+    "forge-install": "forge install --no-commit foundry-rs/forge-std",
+    "build": "tsc --p tsconfig.build.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@1inch/farming": "3.1.0",
+    "@1inch/solidity-utils": "2.4.0",
+    "@chainlink/contracts": "^0.4.0",
+    "@commitlint/cli": "^17.1.2",
+    "@commitlint/config-conventional": "^17.1.0",
+    "@gearbox-protocol/core-v2": "1.19.0-base.10",
+    "@gearbox-protocol/core-v3": "^1.44.0",
+    "@gearbox-protocol/eslint-config": "^1.6.1",
+    "@gearbox-protocol/oracles-v3": "^1.8.1",
+    "@gearbox-protocol/prettier-config": "^1.5.0",
+    "@gearbox-protocol/sdk-gov": "^1.13.0",
+    "@openzeppelin/contracts": "4.9.3",
+    "@redstone-finance/evm-connector": "0.2.5",
+    "@typechain/ethers-v5": "^10.1.0",
+    "dotenv": "^16.0.3",
+    "eslint": "^8.25.0",
+    "ethers": "5.4.4",
+    "husky": "^8.0.1",
+    "lint-staged": "^13.0.3",
+    "prettier": "^2.7.1",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.0",
+    "typescript": "^4.8.2"
+  },
+  "prettier": "@gearbox-protocol/prettier-config",
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.sol": "forge fmt",
+    "*.{json,md}": "prettier --write"
+  }
+}

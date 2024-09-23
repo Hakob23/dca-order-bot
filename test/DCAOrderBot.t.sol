@@ -188,7 +188,7 @@ contract DCAOrderBotTest is BotTestHelper {
         uint256 orderId = bot.submitDCAOrder(dcaOrder);
         uint256 ONE = 10 ** IERC20Metadata(dcaOrder.tokenIn).decimals();
         uint256 price = IPriceOracleV3(creditManager.priceOracle()).convert(ONE, dcaOrder.tokenIn, dcaOrder.tokenOut);
-       
+
         uint256 wethAmount = 40_000e6 * price / 1e6;
         deal({token: address(weth), to: executor, give: wethAmount});
         vm.prank(executor);
@@ -231,7 +231,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function _assertDCAOrderHasRemainingExecutions(uint256 orderId, uint256 expectedExecutionsLeft) internal {
-        (, , , , , , , , , uint256 executionsLeft) = bot.dcaOrders(orderId);
+        (,,,,,,,,, uint256 executionsLeft) = bot.dcaOrders(orderId);
         assertEq(executionsLeft, expectedExecutionsLeft, "Incorrect executions left");
     }
 
