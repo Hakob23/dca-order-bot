@@ -6,10 +6,3 @@ solc_version = '0.8.22'
 evm_version = 'shanghai'
 gas_reports = ['LimitOrderBot', 'AccountManagerBot']
 verbosity = 3
-# remappings = [
-#     '@ds-test/=lib/forge-std/lib/ds-test/src/',
-#     '@forge-std/=lib/forge-std/src/',
-#     '@gearbox-protocol/=lib/gearbox-protocol/',
-#     '@openzeppelin/=lib/openzeppelin-contracts/',
-#     '@1inch/=lib/1inch/',
-# ]

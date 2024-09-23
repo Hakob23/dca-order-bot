@@ -1,3 +1,0 @@
-@chainlink/=node_modules/@chainlink/
-@openzeppelin/=node_modules/@openzeppelin/
-@gearbox-protocol/=node_modules/@gearbox-protocol/

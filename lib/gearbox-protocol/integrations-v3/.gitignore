@@ -1,8 +1,0 @@
-/node_modules
-/forge-out
-.DS_Store
-cache
-.env
-npm-root
-types
-dist
