@@ -9,35 +9,16 @@ import {ICreditManagerV3} from "@gearbox-protocol/core-v3/contracts/interfaces/I
 import {ICreditFacadeV3} from "@gearbox-protocol/core-v3/contracts/interfaces/ICreditFacadeV3.sol";
 import {ICreditFacadeV3Multicall} from "@gearbox-protocol/core-v3/contracts/interfaces/ICreditFacadeV3Multicall.sol";
 import {IPriceOracleV3} from "@gearbox-protocol/core-v3/contracts/interfaces/IPriceOracleV3.sol";
+import {DCAOrderToken} from "./DCAOrderToken.sol";
+import {DCAOrderLib} from "./DCAOrderLib.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title Dollar Cost Averaging (DCA) bot.
-/// @notice Allows Gearbox users to submit DCA orders, which automatically buy a fixed amount of tokens at regular intervals.
-/// @dev Not designed to handle quoted tokens.
-contract DCAOrderBot {
-    // ----- //
-    // TYPES //
-    // ----- //
+contract DCAOrderBot is Ownable(msg.sender) {
+    using DCAOrderLib for DCAOrderLib.DCAOrder;
 
-    /// @notice DCA order data.
-    struct DCAOrder {
-        address borrower;           // Address of the user who submitted the DCA order
-        address manager;            // Address of the Gearbox credit manager
-        address account;            // Address of the borrower's Gearbox credit account
-        address tokenIn;            // Token being sold/exchanged
-        address tokenOut;           // Token being bought
-        uint256 amountPerInterval;  // Amount of `tokenIn` exchanged in each DCA execution
-        uint256 interval;           // Time interval between each DCA execution (in seconds)
-        uint256 nextExecutionTime;  // Timestamp when the next DCA execution can happen
-        uint256 totalExecutions;    // Total number of executions for the DCA order
-        uint256 executionsLeft;     // Number of executions left
-    }
-
-    // --------------- //
-    // STATE VARIABLES //
-    // --------------- //
-
-    /// @notice Pending DCA orders.
-    mapping(uint256 => DCAOrder) public dcaOrders;
+    // Reference to the DCAOrderToken contract
+    DCAOrderToken public orderToken;
 
     /// @dev DCA orders counter. This keeps track of the ID of the next DCA order.
     uint256 internal _nextDCAOrderId;
@@ -100,9 +81,9 @@ contract DCAOrderBot {
             revert CallerNotBorrower();
         }
 
-        // Generate a new order ID and store the DCA order.
+        // Generate a new order ID and mint a new ERC721 token representing the order.
         orderId = _useDCAOrderId();
-        dcaOrders[orderId] = dcaOrder;
+        orderToken.mint(msg.sender, orderId, dcaOrder);
 
         // Emit an event notifying the DCA order has been created.
         emit CreateDCAOrder(msg.sender, orderId);
@@ -111,24 +92,26 @@ contract DCAOrderBot {
     /// @notice Cancel a pending DCA order.
     /// @param orderId ID of the DCA order to cancel.
     function cancelDCAOrder(uint256 orderId) external {
-        DCAOrder storage dcaOrder = dcaOrders[orderId];
-
-        // Ensure the caller is the borrower of the DCA order.
-        if (dcaOrder.borrower != msg.sender) {
+        // Ensure the caller is the owner of the ERC721 token
+        if (orderToken.ownerOf(orderId) != msg.sender) {
             revert CallerNotBorrower();
         }
 
-        // Delete the DCA order from storage and emit a cancellation event.
-        delete dcaOrders[orderId];
+        // Burn the ERC721 token and delete the order data
+        orderToken.burn(orderId);
+
+        // Emit an event notifying the DCA order has been cancelled
         emit CancelDCAOrder(msg.sender, orderId);
     }
 
     /// @notice Execute a DCA order.
     /// @param orderId ID of the DCA order to execute.
     function executeDCAOrder(uint256 orderId) external {
-        DCAOrder storage dcaOrder = dcaOrders[orderId];
 
-        // Validate the DCA order (check for balance, time, etc.) and get the amount to be exchanged.
+        // Get the DCA order data from the ERC721 contract
+        DCAOrderLib.DCAOrder memory dcaOrder = orderToken.getOrder(orderId);
+
+        // Validate the DCA order and get the amount to be exchanged.
         (uint256 amountIn, uint256 minAmountOut) = _validateDCAOrder(dcaOrder);
 
         // The executor sends the `tokenOut` to the contract and approves the manager.
@@ -154,13 +137,20 @@ contract DCAOrderBot {
         dcaOrder.executionsLeft -= 1;
         dcaOrder.nextExecutionTime += dcaOrder.interval;
 
-        // If no executions are left, delete the order.
         if (dcaOrder.executionsLeft == 0) {
-            delete dcaOrders[orderId];
+            // If no executions are left, burn the token
+            orderToken.burn(orderId);
+        } else {
+            // Update the order data in the ERC721 contract
+            orderToken.updateOrder(orderId, dcaOrder);
         }
 
         // Emit an event notifying that the DCA order has been executed.
         emit ExecuteDCAOrder(msg.sender, orderId);
+    }
+
+    function getDCAOrder(uint256 orderId) external view returns (DCAOrderLib.DCAOrder memory dcaOrder) {
+        dcaOrder = orderToken.getOrder(orderId);
     }
 
     // ------------------ //
@@ -177,7 +167,7 @@ contract DCAOrderBot {
     /// @param dcaOrder The DCA order to validate.
     /// @return amountIn The amount of `tokenIn` to be exchanged in this execution.
     /// @return minAmountOut The minimum amount of `tokenOut` that should be received.
-    function _validateDCAOrder(DCAOrder memory dcaOrder) internal view returns (uint256 amountIn, uint256 minAmountOut) {
+    function _validateDCAOrder(DCAOrderLib.DCAOrder memory dcaOrder) internal view returns (uint256 amountIn, uint256 minAmountOut) {
         ICreditManagerV3 manager = ICreditManagerV3(dcaOrder.manager);
 
         // Ensure the DCA order has not been cancelled.
@@ -209,7 +199,6 @@ contract DCAOrderBot {
         // Get the current price of the `tokenIn` to `tokenOut` pair from the price oracle.
         uint256 ONE = 10 ** IERC20Metadata(dcaOrder.tokenIn).decimals();
         uint256 price = IPriceOracleV3(manager.priceOracle()).convert(ONE, dcaOrder.tokenIn, dcaOrder.tokenOut);
-        
         // Calculate how much `tokenIn` can be sold and the minimum amount of `tokenOut` to receive.
         amountIn = dcaOrder.amountPerInterval > balanceIn ? balanceIn - 1 : dcaOrder.amountPerInterval;
         minAmountOut = amountIn * price / ONE;
