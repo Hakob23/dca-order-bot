@@ -13,6 +13,7 @@ import {IPriceOracleV3} from "@gearbox-protocol/core-v3/contracts/interfaces/IPr
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {DCAOrderBot} from "../src/DCAOrderBot.sol";
+import {DCAOrderLib} from "../src/DCAOrderLib.sol";
 import {BotTestHelper} from "./BotTestHelper.sol";
 
 contract DCAOrderBotTest is BotTestHelper {
@@ -43,7 +44,7 @@ contract DCAOrderBotTest is BotTestHelper {
         );
     }
 
-    function test_DCA_01_setUp_is_correct() public {
+    function test_DCA_01_setUp_is_correct() public view {
         assertEq(address(underlying), address(usdc), "Incorrect underlying");
         assertEq(creditManager.getBorrowerOrRevert(address(creditAccount)), user, "Incorrect account owner");
         assertEq(usdc.balanceOf(address(creditAccount)), 150_000e6, "Incorrect account balance of underlying");
@@ -51,7 +52,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_02_submitDCAOrder_reverts_if_caller_is_not_borrower() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+        DCAOrderLib.DCAOrder memory dcaOrder;
 
         vm.expectRevert(DCAOrderBot.CallerNotBorrower.selector);
         vm.prank(user);
@@ -68,7 +69,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_03_submitDCAOrder_works_as_expected_when_called_properly() public {
-        DCAOrderBot.DCAOrder memory dcaOrder = DCAOrderBot.DCAOrder({
+        DCAOrderLib.DCAOrder memory dcaOrder = DCAOrderLib.DCAOrder({
             borrower: user,
             manager: address(creditManager),
             account: address(creditAccount),
@@ -92,7 +93,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_04_cancelDCAOrder_reverts_if_caller_is_not_borrower() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+        DCAOrderLib.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -106,8 +107,8 @@ contract DCAOrderBotTest is BotTestHelper {
         bot.cancelDCAOrder(orderId);
     }
 
-    function test_DCA_05_cancelDCAOrder_works_as_expected_when_called_properly() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+    function test_DCA_05_newcancelDCAOrder_works_as_expected_when_called_properly() public {
+        DCAOrderLib.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -125,7 +126,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_06_executeDCAOrder_reverts_if_no_executions_left() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+        DCAOrderLib.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -140,7 +141,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_07_executeDCAOrder_reverts_if_execution_time_has_not_passed() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+        DCAOrderLib.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -156,7 +157,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_08_executeOrder_reverts_if_order_is_cancelled() public {
-        DCAOrderBot.DCAOrder memory order;
+        DCAOrderLib.DCAOrder memory order;
         order.borrower = user;
         order.manager = address(creditManager);
         order.account = address(creditAccount);
@@ -173,7 +174,7 @@ contract DCAOrderBotTest is BotTestHelper {
     }
 
     function test_DCA_09_executeDCAOrder_works_as_expected_when_called_properly() public {
-        DCAOrderBot.DCAOrder memory dcaOrder;
+        DCAOrderLib.DCAOrder memory dcaOrder;
         dcaOrder.borrower = user;
         dcaOrder.manager = address(creditManager);
         dcaOrder.account = address(creditAccount);
@@ -205,58 +206,38 @@ contract DCAOrderBotTest is BotTestHelper {
         assertEq(weth.balanceOf(address(creditAccount)), wethAmount, "Incorrect account WETH balance");
     }
 
-    function _assertDCAOrderIsEqual(uint256 orderId, DCAOrderBot.DCAOrder memory dcaOrder) internal {
-        (
-            address borrower,
-            address manager,
-            address account,
-            address tokenIn,
-            address tokenOut,
-            uint256 amountPerInterval,
-            uint256 interval,
-            uint256 nextExecutionTime,
-            uint256 totalExecutions,
-            uint256 executionsLeft
-        ) = bot.dcaOrders(orderId);
-        assertEq(borrower, dcaOrder.borrower, "Incorrect borrower");
-        assertEq(manager, dcaOrder.manager, "Incorrect manager");
-        assertEq(account, dcaOrder.account, "Incorrect account");
-        assertEq(tokenIn, dcaOrder.tokenIn, "Incorrect tokenIn");
-        assertEq(tokenOut, dcaOrder.tokenOut, "Incorrect tokenOut");
-        assertEq(amountPerInterval, dcaOrder.amountPerInterval, "Incorrect amountPerInterval");
-        assertEq(interval, dcaOrder.interval, "Incorrect interval");
-        assertEq(nextExecutionTime, dcaOrder.nextExecutionTime, "Incorrect nextExecutionTime");
-        assertEq(totalExecutions, dcaOrder.totalExecutions, "Incorrect totalExecutions");
-        assertEq(executionsLeft, dcaOrder.executionsLeft, "Incorrect executionsLeft");
+    function _assertDCAOrderIsEqual(uint256 orderId, DCAOrderLib.DCAOrder memory dcaOrder) internal view {
+        
+        DCAOrderLib.DCAOrder memory order = bot.getDCAOrder(orderId);
+        assertEq(order.borrower, dcaOrder.borrower, "Incorrect borrower");
+        assertEq(order.manager, dcaOrder.manager, "Incorrect manager");
+        assertEq(order.account, dcaOrder.account, "Incorrect account");
+        assertEq(order.tokenIn, dcaOrder.tokenIn, "Incorrect tokenIn");
+        assertEq(order.tokenOut, dcaOrder.tokenOut, "Incorrect tokenOut");
+        assertEq(order.amountPerInterval, dcaOrder.amountPerInterval, "Incorrect amountPerInterval");
+        assertEq(order.interval, dcaOrder.interval, "Incorrect interval");
+        assertEq(order.nextExecutionTime, dcaOrder.nextExecutionTime, "Incorrect nextExecutionTime");
+        assertEq(order.totalExecutions, dcaOrder.totalExecutions, "Incorrect totalExecutions");
+        assertEq(order.executionsLeft, dcaOrder.executionsLeft, "Incorrect executionsLeft");
     }
 
-    function _assertDCAOrderHasRemainingExecutions(uint256 orderId, uint256 expectedExecutionsLeft) internal {
-        (, , , , , , , , , uint256 executionsLeft) = bot.dcaOrders(orderId);
-        assertEq(executionsLeft, expectedExecutionsLeft, "Incorrect executions left");
+    function _assertDCAOrderHasRemainingExecutions(uint256 orderId, uint256 expectedExecutionsLeft) internal view {
+        DCAOrderLib.DCAOrder memory order = bot.getDCAOrder(orderId);
+        assertEq(order.executionsLeft, expectedExecutionsLeft, "Incorrect executions left");
     }
 
-    function _assertDCAOrderIsEmpty(uint256 orderId) internal {
-        (
-            address borrower,
-            address manager,
-            address account,
-            address tokenIn,
-            address tokenOut,
-            uint256 amountPerInterval,
-            uint256 interval,
-            uint256 nextExecutionTime,
-            uint256 totalExecutions,
-            uint256 executionsLeft
-        ) = bot.dcaOrders(orderId);
-        assertEq(borrower, address(0), "Incorrect borrower");
-        assertEq(manager, address(0), "Incorrect manager");
-        assertEq(account, address(0), "Incorrect account");
-        assertEq(tokenIn, address(0), "Incorrect tokenIn");
-        assertEq(tokenOut, address(0), "Incorrect tokenOut");
-        assertEq(amountPerInterval, 0, "Incorrect amountPerInterval");
-        assertEq(interval, 0, "Incorrect interval");
-        assertEq(nextExecutionTime, 0, "Incorrect nextExecutionTime");
-        assertEq(totalExecutions, 0, "Incorrect totalExecutions");
-        assertEq(executionsLeft, 0, "Incorrect executionsLeft");
+    function _assertDCAOrderIsEmpty(uint256 orderId) internal view {
+        DCAOrderLib.DCAOrder memory order = bot.getDCAOrder(orderId);
+       
+        assertEq(order.borrower, address(0), "Incorrect borrower");
+        assertEq(order.manager, address(0), "Incorrect manager");
+        assertEq(order.account, address(0), "Incorrect account");
+        assertEq(order.tokenIn, address(0), "Incorrect tokenIn");
+        assertEq(order.tokenOut, address(0), "Incorrect tokenOut");
+        assertEq(order.amountPerInterval, 0, "Incorrect amountPerInterval");
+        assertEq(order.interval, 0, "Incorrect interval");
+        assertEq(order.nextExecutionTime, 0, "Incorrect nextExecutionTime");
+        assertEq(order.totalExecutions, 0, "Incorrect totalExecutions");
+        assertEq(order.executionsLeft, 0, "Incorrect executionsLeft");
     }
 }
