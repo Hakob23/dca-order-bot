@@ -1,66 +1,20 @@
-## Foundry
+## Gearbox Dollar Cost Averaging (DCA) bot
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Creating and handling trades specialized for Dollar Cost Averaging(DCA) strategy.
 
-Foundry consists of:
+Based on a template contract code 
+* [Limit orders](https://dev.gearbox.fi/bots/limit-orders);
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Installation
 
-## Documentation
+Regular command `forge install` might not work in some cases. So we recommend to install all of the libraries separatly. You can find more information in the following link
+[Proper installation](https://ethereum.stackexchange.com/questions/165955/forge-install-is-not-installing-the-dependencies/165958?noredirect=1#comment180305_165958) 
 
-https://book.getfoundry.sh/
+Next, create a `.env` file, copy the contents from `.env.example` and change placeholder values to the appropriate ones.
 
-## Usage
+Finally, run `forge test` to ensure everything works.
 
-### Build
+### Deployment
 
-```shell
-$ forge build
-```
+You can deploy the bot using `forge script ./scripts/DCAOrderBot.s.sol --rpc-url <RPC_URL> `.
 
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
