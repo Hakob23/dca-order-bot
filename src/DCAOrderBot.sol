@@ -64,15 +64,24 @@ contract DCAOrderBot is Ownable(msg.sender) {
     /// @notice Thrown when the user has insufficient tokens to sell.
     error NothingToSell();
 
+    // Constructor to deploy the DCAOrderToken contract
+    constructor() {
+        _deployNewOrderToken();
+    }
 
     // ------------------ //
     // EXTERNAL FUNCTIONS //
     // ------------------ //
 
+    /// @notice Allows the owner to deploy a new DCAOrderToken contract and update the reference.
+    function deployNewOrderToken() external onlyOwner {
+        _deployNewOrderToken();
+    }
+
     /// @notice Submit a new DCA order.
     /// @param dcaOrder The DCA order to submit.
     /// @return orderId The ID of the created DCA order.
-    function submitDCAOrder(DCAOrder calldata dcaOrder) external returns (uint256 orderId) {
+    function submitDCAOrder(DCAOrderLib.DCAOrder calldata dcaOrder) external returns (uint256 orderId) {
         // Ensure the caller is the borrower and the borrower is the current owner of the Gearbox account.
         if (
             dcaOrder.borrower != msg.sender
@@ -156,6 +165,13 @@ contract DCAOrderBot is Ownable(msg.sender) {
     // ------------------ //
     // INTERNAL FUNCTIONS //
     // ------------------ //
+
+    /// @dev Deploys a new DCAOrderToken contract and updates the reference.
+    function _deployNewOrderToken() internal {
+        orderToken = new DCAOrderToken();
+        // Transfer ownership of the DCAOrderToken contract to this contract
+        orderToken.transferOwnership(address(this));
+    }
 
     /// @dev Increments the DCA order counter and returns its previous value.
     function _useDCAOrderId() internal returns (uint256 orderId) {
